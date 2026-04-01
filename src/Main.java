@@ -1,26 +1,44 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
+import java.util.List;
 import java.io.IOException;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.Vocabulary;
 
 public class Main {
-    public static void main(String[] args) {
-        // 方式1：从命令行参数获取文件路径
-        if (args.length == 0) {
-            System.err.println("用法: java Main <文件路径>");
-            System.exit(1);
+
+    public static void main(String[] args) throws IOException{
+        if(args.length <1){
+            System.err.println("input path is required");
         }
-        
-        String filePath = args[0];
-        
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                System.out.println(line);
+        String source = args[0];
+        CharStream input = CharStreams.fromFileName(source);
+        SysYLexer sysYLexer = new SysYLexer(input);
+        sysYLexer.removeErrorListeners();
+        MyErrorListener myErrorListener = new MyErrorListener();
+        sysYLexer.addErrorListener(myErrorListener);
+        List<? extends Token> myTokens = sysYLexer.getAllTokens();
+        if(myErrorListener.hasError()){
+            myErrorListener.printLexerErrorInformation();
+        }else{
+            Vocabulary vocabulary = sysYLexer.getVocabulary();
+            for(Token i:myTokens){
+                String tokenName = vocabulary.getSymbolicName(i.getType());
+                if(i.getType() == SysYLexer.INTEGER_CONST){
+                    String text = i.getText();
+                    int value;
+                    if(text.startsWith("0x")||text.startsWith("0X")){
+                        value = Integer.parseInt(text.substring(2),16);
+                    }else if(text.startsWith("0")&&text.length()>1){
+                        value = Integer.parseInt(text,8);
+                    }else{
+                        value = Integer.parseInt(text);
+                    }
+                    System.err.println(tokenName+" "+value+" at Line "+i.getLine()+".");
+                }else{
+                    System.err.println(tokenName+" "+i.getText()+" at Line "+i.getLine()+".");
+                }
             }
-        } catch (IOException e) {
-            System.err.println("错误: 无法读取文件 " + filePath);
-            System.err.println(e.getMessage());
-            System.exit(1);
         }
     }
 }
