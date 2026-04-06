@@ -6,9 +6,10 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
     private int indentLevel = 0;
     private boolean lastWasNewLine = true;
     private boolean needIndent = true;
+    private boolean isStandaloneBlock = false;
 
     public String getFormattedCode() {
-        
+
         return output.toString();
     }
 
@@ -31,7 +32,6 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
         output.append('\n');
         needIndent = true;
         lastWasNewLine = true;
-
     }
 
     private void addSpace() {
@@ -123,6 +123,10 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
 
     @Override
     public Void visitBlock(SysYParser.BlockContext ctx) {
+        if (isStandaloneBlock == false) {
+            addSpace();
+        }
+        isStandaloneBlock = true;
         addText("{");
         addNewLine();
         indentLevel++;
@@ -151,7 +155,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
                     visit(thenStmt);
                     indentLevel--;
                 } else {
-                    addSpace();
+                    isStandaloneBlock = false;
                     visit(thenStmt);
                 }
 
@@ -162,6 +166,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
                 if (elseStmt != null) {
                     if (elseStmt.IF() != null) {
                         // else if
+                        isStandaloneBlock = false;
                         visit(elseStmt);
                     } else {
                         addNewLine();
@@ -184,7 +189,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
                     visit(whileStmt);
                     indentLevel--;
                 } else {
-                    addSpace();
+                    isStandaloneBlock = false;
                     visit(whileStmt);
                 }
             }
@@ -257,7 +262,11 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
 
     @Override
     public Void visitFuncDef(SysYParser.FuncDefContext ctx) {
-        addNewLine();
+        // 判断如果output最后只有一个换行符就执行addnewline
+        String currentOutput = output.toString();
+        if (currentOutput.length()>=2&&currentOutput.charAt(currentOutput.length() - 2) != '\n') {
+            addNewLine();
+        }
         visit(ctx.funcType());
         addText(ctx.IDENT().getText());
         addText("(");
@@ -265,7 +274,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
             visit(ctx.funcFParams());
         }
         addText(")");
-        addSpace();
+        isStandaloneBlock = false;
         visit(ctx.block());
         return null;
     }
