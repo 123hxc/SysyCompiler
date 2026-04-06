@@ -8,6 +8,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
     private boolean needIndent = true;
 
     public String getFormattedCode() {
+        
         return output.toString();
     }
 
@@ -77,9 +78,9 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
                 addText(text);
                 addSpace();
                 break;
-            case SysYLexer.PLUS:  
+            case SysYLexer.PLUS:
             case SysYLexer.MINUS:
-            case SysYLexer.MUL:          
+            case SysYLexer.MUL:
             case SysYLexer.DIV:
             case SysYLexer.MOD:
             case SysYLexer.ASSIGN:
@@ -89,7 +90,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
             case SysYLexer.GT:
             case SysYLexer.LE:
             case SysYLexer.GE:
-            case SysYLexer.AND:    
+            case SysYLexer.AND:
             case SysYLexer.OR:
                 addSpace();
                 addText(text);
@@ -162,7 +163,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
                     if (elseStmt.IF() != null) {
                         // else if
                         visit(elseStmt);
-                    } else  {
+                    } else {
                         addNewLine();
                         indentLevel++;
                         visit(elseStmt);
@@ -191,10 +192,11 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
         } else if (ctx.RETURN() != null) {
             // return
             addText("return");
-            if(ctx.exp()!=null){
+            if (ctx.exp() != null) {
+                addSpace();
                 visit(ctx.exp());
                 visit(ctx.SEMICOLON());
-            }else{
+            } else {
                 visit(ctx.SEMICOLON());
             }
         } else {
@@ -236,21 +238,6 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
     }
 
     @Override
-    public Void visitFuncDef(SysYParser.FuncDefContext ctx) {
-        addNewLine();
-        visit(ctx.funcType());
-        addText(ctx.IDENT().getText());
-        addText("(");
-        if (ctx.funcFParams() != null) {
-            visit(ctx.funcFParams());
-        }
-        addText(")");
-        addSpace();
-        visit(ctx.block());
-        return null;
-    }
-
-    @Override
     public Void visitInitVal(SysYParser.InitValContext ctx) {
         if (ctx.L_BRACE() != null) {
             addText(ctx.L_BRACE().getText());
@@ -269,9 +256,24 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitFuncDef(SysYParser.FuncDefContext ctx) {
+        addNewLine();
+        visit(ctx.funcType());
+        addText(ctx.IDENT().getText());
+        addText("(");
+        if (ctx.funcFParams() != null) {
+            visit(ctx.funcFParams());
+        }
+        addText(")");
+        addSpace();
+        visit(ctx.block());
+        return null;
+    }
+
+    @Override
     public Void visitConstInitVal(SysYParser.ConstInitValContext ctx) {
         if (ctx.L_BRACE() != null) {
-            addText(ctx.R_BRACE().getText());
+            addText(ctx.L_BRACE().getText());
             for (int i = 0; i < ctx.constInitVal().size(); i++) {
                 if (i > 0) {
                     addText(",");
@@ -286,13 +288,13 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
         }
         return null;
     }
+
     @Override
-    public Void visitExp(SysYParser.ExpContext ctx){
-        if(ctx.unaryOp()!=null&&ctx.exp().size()==1){
-            addSpace();
+    public Void visitExp(SysYParser.ExpContext ctx) {
+        if (ctx.unaryOp() != null && ctx.exp().size() == 1) {
             addText(ctx.unaryOp().getText());
             visit(ctx.exp(0));
-        }else {
+        } else {
             visitChildren(ctx);
         }
         return null;

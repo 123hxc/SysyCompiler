@@ -20,5 +20,5 @@ int func() {
         else
             c = 1;
     }
-    return -3;
+    return -1;
 }
