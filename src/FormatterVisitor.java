@@ -29,6 +29,9 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
     }
 
     private void addNewLine() {
+        while (output.length() > 0 && output.charAt(output.length() - 1) == ' ') {
+            output.deleteCharAt(output.length() - 1);
+        }
         output.append('\n');
         needIndent = true;
         lastWasNewLine = true;
@@ -108,7 +111,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
         for (int i = 0; i < ctx.getChildCount(); i++) {
             ParseTree child = ctx.getChild(i);
             if (child instanceof SysYParser.FuncDefContext) {
-                if (output.length()>0) {
+                if (output.length() > 0) {
                     addNewLine();
                 }
                 visit(child);
@@ -162,7 +165,7 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
                 addText(ctx.ELSE().getText());
                 SysYParser.StmtContext elseStmt = ctx.stmt(1);
                 if (elseStmt != null) {
-                    if (elseStmt.IF() != null||elseStmt.block()!=null) {
+                    if (elseStmt.IF() != null || elseStmt.block() != null) {
                         // else if
                         addSpace();
                         isStandaloneBlock = false;
