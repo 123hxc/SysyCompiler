@@ -10,6 +10,9 @@ int func() {
     {
         print(a);
         if (a>1) {
+            if(b>1){
+                c=0;
+            }
             c = a + b;
             {
             }

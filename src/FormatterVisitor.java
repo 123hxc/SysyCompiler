@@ -105,15 +105,13 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
 
     @Override
     public Void visitCompUnit(SysYParser.CompUnitContext ctx) {
-        boolean firstFunc = true;
         for (int i = 0; i < ctx.getChildCount(); i++) {
             ParseTree child = ctx.getChild(i);
             if (child instanceof SysYParser.FuncDefContext) {
-                if (!firstFunc) {
+                if (output.length()>0) {
                     addNewLine();
                 }
                 visit(child);
-                firstFunc = false;
             } else {
                 visit(child);
             }
@@ -161,11 +159,12 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
 
             }
             if (ctx.ELSE() != null) {
-                visit(ctx.ELSE());
+                addText(ctx.ELSE().getText());
                 SysYParser.StmtContext elseStmt = ctx.stmt(1);
                 if (elseStmt != null) {
-                    if (elseStmt.IF() != null) {
+                    if (elseStmt.IF() != null||elseStmt.block()!=null) {
                         // else if
+                        addSpace();
                         isStandaloneBlock = false;
                         visit(elseStmt);
                     } else {
@@ -262,11 +261,6 @@ public class FormatterVisitor extends SysYParserBaseVisitor<Void> {
 
     @Override
     public Void visitFuncDef(SysYParser.FuncDefContext ctx) {
-        // 判断如果output最后只有一个换行符就执行addnewline
-        String currentOutput = output.toString();
-        if (currentOutput.length()>=2&&currentOutput.charAt(currentOutput.length() - 2) != '\n') {
-            addNewLine();
-        }
         visit(ctx.funcType());
         addText(ctx.IDENT().getText());
         addText("(");
