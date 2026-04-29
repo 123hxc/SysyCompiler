@@ -48,7 +48,7 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
         Type type = currentScope.resolve(name);
         if (type == null) {
             reportError(1, line, "use defined value");
-            type = IntType.INT;
+            type = Type.INT;
         }
         for (SysYParser.ExpContext expCtx : ctx.exp()) {
             Type indexType = visit(expCtx);
@@ -59,7 +59,7 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
                 type = ((ArrayType) type).getElementType();
             } else {
                 reportError(9, line, "Not a Array");
-                return IntType.INT;
+                return Type.INT;
             }
         }
         return type;
@@ -126,10 +126,7 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
                     actualParams.add(visit(ParamCtx));
                 }
             }
-            if (formalParams.size() == 0) {
-                reportError(8, line, "Function is not applicable for arguments.");
-            } else {
-                if (formalParams.size() != formalParams.size()) {
+            if (formalParams.size() != actualParams.size()) {
                     reportError(8, line, "Function Params count dismatched");
                 } else {
                     for (int i = 0; i < formalParams.size(); i++) {
@@ -141,10 +138,9 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
                         }
                     }
                 }
-            }
             return functionType.getReturnType();
-        }
-        return super.visitExp(ctx);
+        }return super.visitExp(ctx);
+
     }
 
     @Override
