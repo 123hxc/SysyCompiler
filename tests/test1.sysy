@@ -1,12 +1,17 @@
-int a = 0;
 int count = 0;
-    
-int main() {
-    while (a <= 0) {
-        a = a - 1;
+int n = 3;
+
+void hanoi(int n, int source, int target, int auxiliary) {
+    if (n == 1) {
         count = count + 1;
-        if (a < -20)
-            break;
+        return;
     }
+    hanoi(n - 1, source, auxiliary, target);
+    count = count + 1;
+    hanoi(n - 1, auxiliary, target, source);
+}
+
+int main() {
+    hanoi(n, 1, 3, 2);
     return count;
 }

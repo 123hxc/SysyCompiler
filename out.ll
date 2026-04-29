@@ -26,9 +26,8 @@ while_body:                                       ; preds = %while_cond
 
 if_true:                                          ; preds = %while_body
   br label %while_next
-  br label %if_next
 
-if_next:                                          ; preds = %if_true, %while_body
+if_next:                                          ; preds = %while_body
   br label %while_cond
 
 while_next:                                       ; preds = %if_true, %while_cond
