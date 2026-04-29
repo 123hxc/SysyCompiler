@@ -8,7 +8,7 @@ ANTLR = java -jar /usr/local/lib/antlr-*-complete.jar -listener -visitor -long-m
 JAVAC = javac -g
 JAVA = java
 
-FILEPATH = ./tests/test9.sysy
+FILEPATH = ./tests/test1.sysy
 OUTPATH = ./out.ll
 
 PFILE = $(shell find . -name "SysYParser.g4")
