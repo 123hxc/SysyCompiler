@@ -97,10 +97,16 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
 
     @Override
     public Type visitExp(SysYParser.ExpContext ctx) {
-        if (ctx.unaryOp()!=null){
+        if (ctx.number() != null) {
+            return Type.INT;
+        }
+        if (ctx.L_PAREN() != null && ctx.IDENT() == null) {
+            return visit(ctx.exp(0));
+        }
+        if (ctx.unaryOp() != null) {
             Type operandType = visit(ctx.exp(0));
             int line = ctx.getStart().getLine();
-            if(operandType!=null&&!operandType.isInt()){
+            if (operandType != null && !operandType.isInt()) {
                 reportError(6, line, "Type dismatched");
             }
             return Type.INT;
@@ -109,7 +115,7 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
             Type LeftType = visit(ctx.exp(0));
             Type RightType = visit(ctx.exp(1));
             int line = ctx.getStart().getLine();
-            if (LeftType != null && RightType != null && !LeftType.isSameType(RightType)) {
+            if (LeftType != null && RightType != null && (!LeftType.isInt() || RightType.isInt())) {
                 reportError(6, line, "Type dismatched for operands");
             }
             return Type.INT;
@@ -135,20 +141,30 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
                 }
             }
             if (formalParams.size() != actualParams.size()) {
-                    reportError(8, line, "Function Params count dismatched");
-                } else {
-                    for (int i = 0; i < formalParams.size(); i++) {
-                        Type fType = formalParams.get(i);
-                        Type aType = actualParams.get(i);
-                        if (aType != null && !aType.isSameType(fType)) {
-                            reportError(8, line, "Function Params type dismatched");
-                            break;
-                        }
+                reportError(8, line, "Function Params count dismatched");
+            } else {
+                for (int i = 0; i < formalParams.size(); i++) {
+                    Type fType = formalParams.get(i);
+                    Type aType = actualParams.get(i);
+                    if (aType != null && !aType.isSameType(fType)) {
+                        reportError(8, line, "Function Params type dismatched");
+                        break;
                     }
                 }
+            }
             return functionType.getReturnType();
-        }return super.visitExp(ctx);
+        }
+        return super.visitExp(ctx);
 
+    }
+
+    @Override
+    public Type visitCond(SysYParser.CondContext ctx) {
+        Type condType = visitChildren(ctx);
+        if (condType != null && !condType.isInt()) {
+            reportError(6, ctx.getStart().getLine(), "Condition must be int");
+        }
+        return Type.INT;
     }
 
     @Override
@@ -192,7 +208,9 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
             }
         }
         if (ctx.block() != null) {
-            visit(ctx.block());
+            for (SysYParser.BlockItemContext itemCtx : ctx.block().blockItem()) {
+                visit(itemCtx);
+            }
         }
         currentScope = backupScope;
         this.expectedRetType = null;

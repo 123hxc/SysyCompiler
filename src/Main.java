@@ -31,7 +31,6 @@ public class Main {
             semanticVisitor.visit(tree);
             if(semanticVisitor.hasError()){
                 semanticVisitor.printSemanticErrorInformation();
-
             }else{
                 System.err.println("No semantic errors in the program!");
             }
