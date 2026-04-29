@@ -19,10 +19,10 @@ JAVAFILE = $(shell find . -name "*.java")
 compile: antlr
 	$(call git_commit,"make")
 	mkdir -p classes
-	$(JAVAC) -classpath $(LIBPATH) $(JAVAFILE) -d classes
+	$(JAVAC) -classpath ".:$(LIBPATH)" $(JAVAFILE) -d classes
 
 run: compile
-	java -classpath ./classes:$(LIBPATH) Main $(FILEPATH) $(OUTPATH)
+	java -classpath "./classes:$(LIBPATH)" Main $(FILEPATH) $(OUTPATH)
 
 
 antlr: $(LFILE) $(PFILE) 
@@ -31,7 +31,7 @@ antlr: $(LFILE) $(PFILE)
 
 test: compile
 	$(call git_commit, "test")
-	nohup java -classpath ./classes:$(LIBPATH) Main ./tests/test1.sysy &
+	nohup java -classpath "./classes:$(LIBPATH)" Main ./tests/test1.sysy &
 
 
 clean:
