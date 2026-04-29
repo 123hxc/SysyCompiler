@@ -28,35 +28,10 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
         // int getint()
         FunctionType getintType = context.getFunctionType(i32, new Type[]{}, false);
         module.addFunction("getint", getintType);
-        
-        // int getch()
-        FunctionType getchType = context.getFunctionType(i32, new Type[]{}, false);
-        module.addFunction("getch", getchType);
 
         // void putint(int)
         FunctionType putintType = context.getFunctionType(voidType, new Type[]{i32}, false);
         module.addFunction("putint", putintType);
-
-        // void putch(int)
-        FunctionType putchType = context.getFunctionType(voidType, new Type[]{i32}, false);
-        module.addFunction("putch", putchType);
-        
-        // 如果后续有数组，还需要 getarray 和 putarray
-        // 获取 i32 的指针类型 (相当于 C 语言的 int*)
-        PointerType i32Ptr = context.getInt32Type().getPointerTo();
-
-        // int getarray(int[]) -> 传参其实是指针 i32*
-        FunctionType getarrayType = context.getFunctionType(i32, new Type[]{i32Ptr}, false);
-        module.addFunction("getarray", getarrayType);
-
-        // void putarray(int, int[])
-        FunctionType putarrayType = context.getFunctionType(voidType, new Type[]{i32, i32Ptr}, false);
-        module.addFunction("putarray", putarrayType);
-
-        // starttime 和 stoptime (SysY 评测系统专用的性能计时函数)
-        FunctionType timeType = context.getFunctionType(voidType, new Type[]{}, false);
-        module.addFunction("starttime", timeType);
-        module.addFunction("stoptime", timeType);
     }
 
     // =======================================================
