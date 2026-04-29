@@ -36,12 +36,6 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
         // void putch(int)
         module.addFunction("putch", context.getFunctionType(voidType, new Type[]{i32}, false));
 
-        // 3. 注册数组相关库函数
-        // int getarray(int[])
-        module.addFunction("getarray", context.getFunctionType(i32, new Type[]{i32Ptr}, false));
-        // void putarray(int, int[])
-        module.addFunction("putarray", context.getFunctionType(voidType, new Type[]{i32, i32Ptr}, false));
-
         // 4. 注册计时器函数 (StartTime / StopTime)
         FunctionType timeType = context.getFunctionType(voidType, new Type[]{}, false);
         module.addFunction("starttime", timeType);
