@@ -4,7 +4,7 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.tree.ParseTree;
-
+import symbol.*;
 public class Main {
 
     public static void main(String[] args) throws IOException{
@@ -23,9 +23,18 @@ public class Main {
         if(mySyntaxErrorListener.hasError()){
             mySyntaxErrorListener.printSyntaxErrorInformation();
         }else{
-            FormatterVisitor formatterVisitor = new FormatterVisitor();
-            formatterVisitor.visit(tree);
-            System.out.println(formatterVisitor.getFormattedCode());
+            //LAB2代码
+            // FormatterVisitor formatterVisitor = new FormatterVisitor();
+            // formatterVisitor.visit(tree);
+            // System.out.println(formatterVisitor.getFormattedCode());
+            Scope golabScope = new Scope(null);
+            SemanticVisitor semanticVisitor = new SemanticVisitor(golabScope);
+            semanticVisitor.visit(tree);
+            if(semanticVisitor.hasError()){
+                semanticVisitor.printSemanticErrorInformation();
+            }else{
+                System.err.println("No semantic errors in the program!");
+            }
         }
 
 
