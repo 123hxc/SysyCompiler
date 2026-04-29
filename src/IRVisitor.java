@@ -24,14 +24,28 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     private IRScope currentScope = new IRScope(null);
 
     public IRVisitor() {
-        // --- 预声明 SysY 运行时库函数 ---
-        // int getint()
-        FunctionType getintType = context.getFunctionType(i32, new Type[]{}, false);
-        module.addFunction("getint", getintType);
+        
 
+        // 2. 注册 SysY 标准库函数
+        // int getint()
+        module.addFunction("getint", context.getFunctionType(i32, new Type[]{}, false));
+        // int getch()
+        module.addFunction("getch", context.getFunctionType(i32, new Type[]{}, false));
         // void putint(int)
-        FunctionType putintType = context.getFunctionType(voidType, new Type[]{i32}, false);
-        module.addFunction("putint", putintType);
+        module.addFunction("putint", context.getFunctionType(voidType, new Type[]{i32}, false));
+        // void putch(int)
+        module.addFunction("putch", context.getFunctionType(voidType, new Type[]{i32}, false));
+
+        // 3. 注册数组相关库函数
+        // int getarray(int[])
+        module.addFunction("getarray", context.getFunctionType(i32, new Type[]{i32Ptr}, false));
+        // void putarray(int, int[])
+        module.addFunction("putarray", context.getFunctionType(voidType, new Type[]{i32, i32Ptr}, false));
+
+        // 4. 注册计时器函数 (StartTime / StopTime)
+        FunctionType timeType = context.getFunctionType(voidType, new Type[]{}, false);
+        module.addFunction("starttime", timeType);
+        module.addFunction("stoptime", timeType);
     }
 
     // =======================================================
