@@ -7,3 +7,7 @@
 `rm src/*.class`清除所有.class文件
 
 `git checkout -b lab2`切换分支
+
+`git add.`提交
+`git commit -m "msg"`
+`make submit`
