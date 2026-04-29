@@ -77,10 +77,28 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
         }
         
         // 4. 函数调用: IDENT L_PAREN funcRParams? R_PAREN
-        if (ctx.IDENT() != null) {
-            // TODO: 这是 Part 3 的内容。目前只做 Part 1&2，遇到时返回 null 或抛异常
-            // 如果后续要实现，逻辑大概是找出函数并 buildCall
-            throw new UnsupportedOperationException("函数调用暂未实现");
+        if (ctx.IDENT() != null && ctx.L_PAREN() != null) {
+            String targetFuncName = ctx.IDENT().getText();
+            
+            // 从模块中获取已经定义好的函数
+            Function targetFunc = module.getFunction(targetFuncName).unwrap();
+
+            // 解析并计算实参 (Arguments)
+            int argCount = 0;
+            if (ctx.funcRParams() != null) {
+                argCount = ctx.funcRParams().param().size();
+            }
+            Value[] args = new Value[argCount];
+            for (int k = 0; k < argCount; k++) {
+                // visit 会自动 load 变量 a 的值
+                args[k] = visit(ctx.funcRParams().param(k)); 
+            }
+
+            // 生成 call 指令
+            // 如果函数返回类型是 void，不能给返回结果命名，传 Option.empty()
+            // 如果是 int，可以命名为 calltmp
+            // 这里为了简单兼容，统一传 Option.empty() 或根据实际情况判断
+            return builder.buildCall(targetFunc, args, Option.empty());
         }
         
         // 5. 单目运算: unaryOp exp
@@ -119,29 +137,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
                 return builder.buildIntSub(left, right, WrapSemantics.Unspecified, Option.of("subtmp"));
             }
         }
-        if (ctx.IDENT() != null && ctx.L_PAREN() != null) {
-            String targetFuncName = ctx.IDENT().getText();
-            
-            // 从模块中获取已经定义好的函数
-            Function targetFunc = module.getFunction(targetFuncName).unwrap();
-
-            // 解析并计算实参 (Arguments)
-            int argCount = 0;
-            if (ctx.funcRParams() != null) {
-                argCount = ctx.funcRParams().param().size();
-            }
-            Value[] args = new Value[argCount];
-            for (int k = 0; k < argCount; k++) {
-                // visit 会自动 load 变量 a 的值
-                args[k] = visit(ctx.funcRParams().param(k)); 
-            }
-
-            // 生成 call 指令
-            // 如果函数返回类型是 void，不能给返回结果命名，传 Option.empty()
-            // 如果是 int，可以命名为 calltmp
-            // 这里为了简单兼容，统一传 Option.empty() 或根据实际情况判断
-            return builder.buildCall(targetFunc, args, Option.empty());
-        }
+        
         
         return null;
     }
