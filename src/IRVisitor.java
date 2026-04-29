@@ -120,6 +120,29 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
                 return builder.buildIntSub(left, right, WrapSemantics.Unspecified, Option.of("subtmp"));
             }
         }
+        if (ctx.IDENT() != null && ctx.L_PAREN() != null) {
+            String targetFuncName = ctx.IDENT().getText();
+            
+            // 从模块中获取已经定义好的函数
+            Function targetFunc = module.getFunction(targetFuncName).unwrap();
+
+            // 解析并计算实参 (Arguments)
+            int argCount = 0;
+            if (ctx.funcRParams() != null) {
+                argCount = ctx.funcRParams().param().size();
+            }
+            Value[] args = new Value[argCount];
+            for (int k = 0; k < argCount; k++) {
+                // visit 会自动 load 变量 a 的值
+                args[k] = visit(ctx.funcRParams().param(k)); 
+            }
+
+            // 生成 call 指令
+            // 如果函数返回类型是 void，不能给返回结果命名，传 Option.empty()
+            // 如果是 int，可以命名为 calltmp
+            // 这里为了简单兼容，统一传 Option.empty() 或根据实际情况判断
+            return builder.buildCall(targetFunc, args, Option.empty());
+        }
         
         return null;
     }
@@ -135,36 +158,59 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     // =======================================================
     @Override
     public Value visitFuncDef(SysYParser.FuncDefContext ctx) {
-        String funcName = ctx.IDENT().getText();
+        // 注意：这里根据你的 .g4 文件，函数名可能是 IDENT() 也可能是 ID()
+        String funcName = ctx.IDENT().getText(); 
         boolean isVoid = ctx.funcType().getText().equals("void");
-        Type retType = isVoid ? voidType : i32;
+        Type retType = isVoid ? (Type) voidType : (Type) i32;
 
-        // 这里假设没有参数，如果有参数需要构造 Type[]
-        // 实验 Part 3 需要在这里解析 FuncFParams，构建参数类型列表
-        Type[] paramTypes = new Type[] {};
+        // 1. 获取形参列表并构建 LLVM 函数签名
+        int paramCount = 0;
+        if (ctx.funcFParams() != null) {
+            paramCount = ctx.funcFParams().funcFParam().size();
+        }
+        Type[] paramTypes = new Type[paramCount];
+        for (int k = 0; k < paramCount; k++) {
+            // 目前阶段假设参数都是 int 类型
+            paramTypes[k] = i32; 
+        }
+
         FunctionType funcType = context.getFunctionType(retType, paramTypes, false);
         Function func = module.addFunction(funcName, funcType);
         this.currentFunction = func;
 
-        // 创建入口基本块
         BasicBlock entryBlock = context.newBasicBlock(funcName + "Entry");
         func.addBasicBlock(entryBlock);
         builder.positionAfter(entryBlock);
 
-        // 开启新的函数作用域
         currentScope = new IRScope(currentScope);
 
-        // TODO: Part 3 - 遍历参数列表，为每个参数 alloca，store，并放入 currentScope
+        // 2. 【核心修复】将形参存入内存并注册到符号表
+        if (ctx.funcFParams() != null) {
+            for (int k = 0; k < paramCount; k++) {
+                SysYParser.FuncFParamContext paramCtx = ctx.funcFParams().funcFParam(k);
+                String paramName = paramCtx.IDENT().getText();
 
-        // 访问函数体
+                // 获取 LLVM 底层传进来的第 k 个参数值
+                // 注意：如果 LLVM4J 报错找不到 getArgument，请尝试替换为 getParam(k)
+                Value argValue = func.getParameter(k).unwrap();
+
+                // 在栈上为该形参分配一块局部内存
+                Value paramAddr = builder.buildAlloca(i32, Option.of(paramName + "_addr"));
+                
+                // 将传入的值存储到这块内存中
+                builder.buildStore(paramAddr, argValue);
+                
+                // 将内存地址注册到当前作用域，这样后面遇到 return i 就能 resolve 到了！
+                currentScope.define(paramName, paramAddr);
+            }
+        }
+
+        // 3. 访问函数体
         visit(ctx.block());
 
-        // 离开作用域
         currentScope = currentScope.getParent();
 
-        // 容错处理：如果基本块没有以 ret 结尾，补上默认返回
-        // (LLVM 要求每个基本块必须有 terminator)
-        // 注意：这里需要检查当前块是否已经终止，LLVM4J 可能需要通过某些标志位判断，或者简单粗暴在语义分析保证都有 return
+        // 容错：如果是 void 函数但没写 return，自动补全
         if (isVoid) {
             builder.buildReturn(Option.empty());
         }
