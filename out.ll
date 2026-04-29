@@ -10,7 +10,8 @@ mainEntry:
 
 while_cond:                                       ; preds = %if_next, %mainEntry
   %0 = load i32, i32* @a, align 4
-  br i32 0, label %while_body, label %while_next
+  %cmptmp = icmp sle i32 %0, 0
+  br i1 %cmptmp, label %while_body, label %while_next
 
 while_body:                                       ; preds = %while_cond
   %1 = load i32, i32* @a, align 4
@@ -20,7 +21,8 @@ while_body:                                       ; preds = %while_cond
   %addtmp = add i32 %2, 1
   store i32 %addtmp, i32* @count, align 4
   %3 = load i32, i32* @a, align 4
-  br i32 -20, label %if_true, label %if_next
+  %cmptmp1 = icmp slt i32 %3, -20
+  br i1 %cmptmp1, label %if_true, label %if_next
 
 if_true:                                          ; preds = %while_body
   br label %while_next

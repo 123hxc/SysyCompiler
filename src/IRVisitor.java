@@ -351,8 +351,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             Value leftAddr = visit(ctx.lVal());
             needLValueAddress = false;
 
-            // 注意：因为 exp 在整个 stmt 规则中最多出现一次，通常 ANTLR 会生成 ctx.exp()。
-            // 如果你的 ANTLR 把它当成了列表，这里可能需要改成 ctx.exp(0)
+            // 注意：如果你的 ANTLR 把它当成了列表，这里可能需要改成 ctx.exp(0)
             Value rightVal = visit(ctx.exp());
 
             return builder.buildStore(leftAddr, rightVal);
@@ -377,14 +376,22 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             currentFunction.addBasicBlock(trueBlock); // 将块挂载到当前函数
             builder.positionAfter(trueBlock);
             visit(ctx.stmt(0)); // 访问 IF 后面的第一个 stmt
-            builder.buildBranch(nextBlock);
+            
+            // 【核心修复】：只有当 True 分支没有提前 return/break 时，才生成跳往 next 的指令
+            if (!isTerminator(ctx.stmt(0))) {
+                builder.buildBranch(nextBlock);
+            }
 
             // --- 填充 False 分支 ---
             if (hasElse) {
                 currentFunction.addBasicBlock(falseBlock);
                 builder.positionAfter(falseBlock);
                 visit(ctx.stmt(1)); // 访问 ELSE 后面的第二个 stmt
-                builder.buildBranch(nextBlock);
+                
+                // 【核心修复】：同样检查 False 分支
+                if (!isTerminator(ctx.stmt(1))) {
+                    builder.buildBranch(nextBlock);
+                }
             }
 
             // --- 切换到 Next 块 ---
@@ -413,7 +420,11 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             currentFunction.addBasicBlock(bodyBlock);
             builder.positionAfter(bodyBlock);
             visit(ctx.stmt(0)); // 访问 while 内部的 stmt
-            builder.buildBranch(condBlock);
+            
+            // 【核心修复】：只有当 while 内部没有发生 break/continue/return 时，才默认跳回 cond 块
+            if (!isTerminator(ctx.stmt(0))) {
+                builder.buildBranch(condBlock);
+            }
 
             // 循环结束，弹出栈
             loopStack.pop();
@@ -459,5 +470,40 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             }
             return null;
         }
+    }
+
+    // =======================================================
+    // 辅助方法：探测器 (用于解决基本块截断 / Double Terminator)
+    // =======================================================
+    /**
+     * 分析一条语句，判断它是否一定会通过 break, continue 或 return 终止当前基本块。
+     */
+    private boolean isTerminator(SysYParser.StmtContext ctx) {
+        if (ctx == null) return false;
+        
+        // 1. 如果它本身就是终止语句
+        if (ctx.BREAK() != null || ctx.CONTINUE() != null || ctx.RETURN() != null) {
+            return true;
+        }
+        
+        // 2. 如果它是一个代码块 {}，检查它内部是否包含终止语句
+        if (ctx.block() != null) {
+            for (SysYParser.BlockItemContext item : ctx.block().blockItem()) {
+                if (item.stmt() != null && isTerminator(item.stmt())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // 3. 如果它是一个 if 语句，必须 True 和 False 两个分支都发生终止，它才算绝对终止
+        if (ctx.IF() != null) {
+            boolean trueBranch = isTerminator(ctx.stmt(0));
+            boolean falseBranch = ctx.ELSE() != null && isTerminator(ctx.stmt(1));
+            return trueBranch && falseBranch;
+        }
+        
+        // 其他情况 (如普通赋值、单独的 while 等) 不保证终结
+        return false;
     }
 }
