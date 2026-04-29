@@ -97,12 +97,6 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
 
     @Override
     public Type visitExp(SysYParser.ExpContext ctx) {
-        if (ctx.number() != null) {
-            return Type.INT;
-        }
-        if (ctx.L_PAREN() != null && ctx.IDENT() == null) {
-            return visit(ctx.exp(0));
-        }
         if (ctx.unaryOp() != null) {
             Type operandType = visit(ctx.exp(0));
             int line = ctx.getStart().getLine();
