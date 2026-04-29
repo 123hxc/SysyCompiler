@@ -4,7 +4,6 @@ import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.tree.ParseTree;
-import symbol.*;
 public class Main {
 
     public static void main(String[] args) throws IOException{
@@ -32,7 +31,7 @@ public class Main {
             semanticVisitor.visit(tree);
             if(semanticVisitor.hasError()){
                 semanticVisitor.printSemanticErrorInformation();
-                
+
             }else{
                 System.err.println("No semantic errors in the program!");
             }
