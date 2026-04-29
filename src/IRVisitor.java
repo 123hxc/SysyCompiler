@@ -16,7 +16,6 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
 
     // 常用类型缓存
     private final IntegerType i32 = context.getInt32Type();
-    private final IntegerType i1 = context.getInt1Type();
     private final VoidType voidType = context.getVoidType();
 
     // 作用域管理 (你刚写好的 IRScope)
