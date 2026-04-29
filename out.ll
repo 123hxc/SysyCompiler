@@ -6,11 +6,7 @@ source_filename = "sysy_module"
 
 declare i32 @getint()
 
-declare i32 @getch()
-
 declare void @putint(i32)
-
-declare void @putch(i32)
 
 define void @hanoi(i32 %0, i32 %1, i32 %2, i32 %3) {
 hanoiEntry:
@@ -57,4 +53,5 @@ mainEntry:
   call void @hanoi(i32 %0, i32 1, i32 3, i32 2)
   %1 = load i32, i32* @count, align 4
   ret i32 %1
+  ret i32 0
 }
