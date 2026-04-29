@@ -1,7 +1,3 @@
-
-
-import type.VoidType;
-
 public abstract class Type {
     public static final Type INT = new IntType();
     public static final Type VOID = VoidType.getInstance();

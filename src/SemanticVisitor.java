@@ -3,9 +3,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.AbstractMap;
 
-import type.*;
-import symbol.*;
-
 public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
     private List<String> errorMessages = new ArrayList<>();
     private Scope currentScope;
