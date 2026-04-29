@@ -23,6 +23,27 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     // 作用域管理 (你刚写好的 IRScope)
     private IRScope currentScope = new IRScope(null);
 
+    public IRVisitor() {
+        // --- 预声明 SysY 运行时库函数 ---
+        // int getint()
+        FunctionType getintType = context.getFunctionType(i32, new Type[]{}, false);
+        module.addFunction("getint", getintType);
+        
+        // int getch()
+        FunctionType getchType = context.getFunctionType(i32, new Type[]{}, false);
+        module.addFunction("getch", getchType);
+
+        // void putint(int)
+        FunctionType putintType = context.getFunctionType(voidType, new Type[]{i32}, false);
+        module.addFunction("putint", putintType);
+
+        // void putch(int)
+        FunctionType putchType = context.getFunctionType(voidType, new Type[]{i32}, false);
+        module.addFunction("putch", putchType);
+        
+        // 如果后续有数组，还需要 getarray 和 putarray
+    }
+
     // =======================================================
     // 2. 循环控制栈 (用于处理 break 和 continue)
     // =======================================================
@@ -168,32 +189,78 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             // 如果一边是单纯的变量 (exp)，我们直接取它的 i32 值；
             // 如果一边是比较结果 (比如 a < b，返回的是 i1)，我们需要先把它扩展(ZeroExt)回 i32 才能参与外层运算。
             Value left = getCondAsI32(ctx.cond(0));
-            Value right = getCondAsI32(ctx.cond(1));
-
             // --- 关系运算：比较 i32，生成 i1 ---
             if (ctx.LT() != null) {
+                Value right = getCondAsI32(ctx.cond(1));
                 return builder.buildIntCompare(IntPredicate.SignedLessThan, left, right, Option.of("cmptmp"));
             } else if (ctx.LE() != null) {
+                Value right = getCondAsI32(ctx.cond(1));
                 return builder.buildIntCompare(IntPredicate.SignedLessEqual, left, right, Option.of("cmptmp"));
             } else if (ctx.GT() != null) {
+                Value right = getCondAsI32(ctx.cond(1));
                 return builder.buildIntCompare(IntPredicate.SignedGreaterThan, left, right, Option.of("cmptmp"));
             } else if (ctx.GE() != null) {
+                Value right = getCondAsI32(ctx.cond(1));
                 return builder.buildIntCompare(IntPredicate.SignedGreaterEqual, left, right, Option.of("cmptmp"));
             } else if (ctx.EQ() != null) {
+                Value right = getCondAsI32(ctx.cond(1));
                 return builder.buildIntCompare(IntPredicate.Equal, left, right, Option.of("cmptmp"));
             } else if (ctx.NEQ() != null) {
+                Value right = getCondAsI32(ctx.cond(1));
                 return builder.buildIntCompare(IntPredicate.NotEqual, left, right, Option.of("cmptmp"));
             }
             
             // --- 逻辑运算：先将 i32 压成 i1，再执行 AND/OR，生成 i1 ---
             else if (ctx.AND() != null) {
                 Value lBool = builder.buildIntCompare(IntPredicate.NotEqual, left, i32.getConstant(0, true), Option.of("lbool"));
+
+                BasicBlock rightBlock = context.newBasicBlock("and_right");
+                BasicBlock endBlock = context.newBasicBlock("and_end");
+
+                // 1. 分配一块内存存结果，默认先把左边的结果存进去
+                Value resAddr = builder.buildAlloca(i1, Option.of("and_res"));
+                builder.buildStore(resAddr, lBool); 
+                
+                // 2. 如果左边为真，跳去算右边；如果为假，直接跳到结束（短路发生）
+                builder.buildConditionalBranch(lBool, rightBlock, endBlock);
+
+                // 3. 计算右边的块
+                currentFunction.addBasicBlock(rightBlock);
+                builder.positionAfter(rightBlock);
+                Value right = getCondAsI32(ctx.cond(1));
                 Value rBool = builder.buildIntCompare(IntPredicate.NotEqual, right, i32.getConstant(0, true), Option.of("rbool"));
-                return builder.buildLogicalAnd(lBool, rBool, Option.of("andtmp"));
-            } else if (ctx.OR() != null) {
+                builder.buildStore(resAddr, rBool); // 右边算完，更新结果
+                builder.buildBranch(endBlock);
+
+                // 4. 收尾块，读出最终结果
+                currentFunction.addBasicBlock(endBlock);
+                builder.positionAfter(endBlock);
+                return builder.buildLoad(resAddr, Option.empty());
+            } 
+            
+            // --- 逻辑或 (OR)：左边为真时，直接短路 ---
+            else if (ctx.OR() != null) {
                 Value lBool = builder.buildIntCompare(IntPredicate.NotEqual, left, i32.getConstant(0, true), Option.of("lbool"));
+
+                BasicBlock rightBlock = context.newBasicBlock("or_right");
+                BasicBlock endBlock = context.newBasicBlock("or_end");
+
+                Value resAddr = builder.buildAlloca(i1, Option.of("or_res"));
+                builder.buildStore(resAddr, lBool); 
+                
+                // ⚠️ 注意这里的条件反了：如果左边为真，直接短路跳到结束；为假才去算右边
+                builder.buildConditionalBranch(lBool, endBlock, rightBlock);
+
+                currentFunction.addBasicBlock(rightBlock);
+                builder.positionAfter(rightBlock);
+                Value right = getCondAsI32(ctx.cond(1));
                 Value rBool = builder.buildIntCompare(IntPredicate.NotEqual, right, i32.getConstant(0, true), Option.of("rbool"));
-                return builder.buildLogicalOr(lBool, rBool, Option.of("ortmp"));
+                builder.buildStore(resAddr, rBool);
+                builder.buildBranch(endBlock);
+
+                currentFunction.addBasicBlock(endBlock);
+                builder.positionAfter(endBlock);
+                return builder.buildLoad(resAddr, Option.empty());
             }
         }
         return null;
