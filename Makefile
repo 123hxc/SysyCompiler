@@ -1,26 +1,28 @@
 include Makefile.git
 
-export CLASSPATH=/usr/local/lib/antlr-*-complete.jar
+ANTLRPATH = $(shell find /usr/local/lib -name "antlr-*-complete.jar")
+LIBPATH = /usr/local/lib/*
 
 DOMAINNAME = oj.compilers.cpl.icu
 ANTLR = java -jar /usr/local/lib/antlr-*-complete.jar -listener -visitor -long-messages
 JAVAC = javac -g
 JAVA = java
-FILEPATH = /home/ubuntu/BY_LAB/Lab/tests/test1.sysy
+
+FILEPATH = ./tests/test1.sysy
+OUTPATH = ./out.ll
 
 PFILE = $(shell find . -name "SysYParser.g4")
 LFILE = $(shell find . -name "SysYLexer.g4")
 JAVAFILE = $(shell find . -name "*.java")
-ANTLRPATH = $(shell find /usr/local/lib -name "antlr-*-complete.jar")
- 
+
 
 compile: antlr
 	$(call git_commit,"make")
 	mkdir -p classes
-	$(JAVAC) -classpath $(ANTLRPATH) $(JAVAFILE) -d classes
+	$(JAVAC) -classpath $(LIBPATH) $(JAVAFILE) -d classes
 
 run: compile
-	java -classpath ./classes:$(ANTLRPATH) Main $(FILEPATH)
+	java -classpath ./classes:$(LIBPATH) Main $(FILEPATH) $(OUTPATH)
 
 
 antlr: $(LFILE) $(PFILE) 
@@ -29,7 +31,7 @@ antlr: $(LFILE) $(PFILE)
 
 test: compile
 	$(call git_commit, "test")
-	nohup java -classpath ./classes:$(ANTLRPATH) Main ./tests/test1.sysy &
+	nohup java -classpath ./classes:$(LIBPATH) Main ./tests/test1.sysy &
 
 
 clean:
