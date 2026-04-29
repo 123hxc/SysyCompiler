@@ -44,6 +44,85 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     public void dump(String path) {
         module.dump(Option.of(new File(path)));
     }
+    @Override
+    public Value visitNumber(SysYParser.NumberContext ctx) {
+        String text = ctx.getText();
+        int val;
+        // 处理十六进制、八进制和十进制
+        if (text.startsWith("0x") || text.startsWith("0X")) {
+            val = Integer.parseInt(text.substring(2), 16);
+        } else if (text.startsWith("0") && text.length() > 1) {
+            val = Integer.parseInt(text, 8);
+        } else {
+            val = Integer.parseInt(text);
+        }
+        return i32.getConstant(val, true);
+    }
+    @Override
+    public Value visitExp(SysYParser.ExpContext ctx) {
+        
+        // 1. 括号表达式: L_PAREN exp R_PAREN
+        // 注意：函数调用里也有左括号，所以要通过 IDENT 是否为空来排除函数调用
+        if (ctx.L_PAREN() != null && ctx.IDENT() == null) {
+            return visit(ctx.exp(0));
+        }
+        
+        // 2. 左值: lVal
+        if (ctx.lVal() != null) {
+            return visit(ctx.lVal());
+        }
+        
+        // 3. 数值常量: number
+        if (ctx.number() != null) {
+            return visit(ctx.number());
+        }
+        
+        // 4. 函数调用: IDENT L_PAREN funcRParams? R_PAREN
+        if (ctx.IDENT() != null) {
+            // TODO: 这是 Part 3 的内容。目前只做 Part 1&2，遇到时返回 null 或抛异常
+            // 如果后续要实现，逻辑大概是找出函数并 buildCall
+            throw new UnsupportedOperationException("函数调用暂未实现");
+        }
+        
+        // 5. 单目运算: unaryOp exp
+        if (ctx.unaryOp() != null) {
+            // 获取后面的表达式的值
+            Value child = visit(ctx.exp(0)); 
+            String op = ctx.unaryOp().getText();
+            
+            if (op.equals("-")) {
+                // 负号: 用 0 减去该值
+                return builder.buildIntSub(i32.getConstant(0, true), child, WrapSemantics.Unspecified, Option.of("negtmp"));
+            } else if (op.equals("!")) {
+                // 逻辑非: 判断是否等于 0，再扩展为 i32
+                Value cmp = builder.buildIntCompare(IntPredicate.Equal, child, i32.getConstant(0, true), Option.of("notcmp"));
+                return builder.buildZeroExt(cmp, i32, Option.of("notext"));
+            }
+            // 正号 "+" 直接返回原值
+            return child;
+        }
+        
+        // 6. 双目运算: exp (MUL|DIV|MOD|PLUS|MINUS) exp
+        // 只要包含两个 exp 子节点，就是双目运算
+        if (ctx.exp().size() == 2) {
+            Value left = visit(ctx.exp(0));
+            Value right = visit(ctx.exp(1));
+            
+            if (ctx.MUL() != null) {
+                return builder.buildIntMul(left, right, WrapSemantics.Unspecified, Option.of("multmp"));
+            } else if (ctx.DIV() != null) {
+                return builder.buildSignedDiv(left, right,false, Option.of("divtmp"));
+            } else if (ctx.MOD() != null) {
+                return builder.buildSignedRem(left, right, Option.of("modtmp"));
+            } else if (ctx.PLUS() != null) {
+                return builder.buildIntAdd(left, right, WrapSemantics.Unspecified, Option.of("addtmp"));
+            } else if (ctx.MINUS() != null) {
+                return builder.buildIntSub(left, right, WrapSemantics.Unspecified, Option.of("subtmp"));
+            }
+        }
+        
+        return null;
+    }
 
     @Override
     public Value visitInitVal(SysYParser.InitValContext ctx) {
