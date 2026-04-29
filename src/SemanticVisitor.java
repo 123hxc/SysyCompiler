@@ -97,6 +97,14 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
 
     @Override
     public Type visitExp(SysYParser.ExpContext ctx) {
+        if (ctx.unaryOp()!=null){
+            Type operandType = visit(ctx.exp(0));
+            int line = ctx.getStart().getLine();
+            if(operandType!=null&&!operandType.isInt()){
+                reportError(6, line, "Type dismatched");
+            }
+            return Type.INT;
+        }
         if (ctx.MUL() != null || ctx.DIV() != null || ctx.MOD() != null || ctx.PLUS() != null || ctx.MINUS() != null) {
             Type LeftType = visit(ctx.exp(0));
             Type RightType = visit(ctx.exp(1));
