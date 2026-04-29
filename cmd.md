@@ -11,3 +11,7 @@
 `git add.`提交
 `git commit -m "msg"`
 `make submit`
+
+
+`javac -cp "/usr/local/lib/antlr-4.9.1-complete.jar:lib/*:src" src/*.java -d bin`
+`java -cp "/usr/local/lib/antlr-4.9.1-complete.jar:lib/*:bin" Main tests/test5.sysy out.ll`

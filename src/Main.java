@@ -7,10 +7,12 @@ import org.antlr.v4.runtime.tree.ParseTree;
 public class Main {
 
     public static void main(String[] args) throws IOException{
-        if(args.length <1){
-            System.err.println("input path is required");
+        if(args.length <2){
+            System.err.println("Usage: java Compiler <input_path> <output_path>");
         }
         String source = args[0];
+        String outputPath = args[1];
+        
         CharStream input = CharStreams.fromFileName(source);
         SysYLexer sysYLexer = new SysYLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(sysYLexer);
@@ -26,13 +28,9 @@ public class Main {
             // FormatterVisitor formatterVisitor = new FormatterVisitor();
             // formatterVisitor.visit(tree);
             // System.out.println(formatterVisitor.getFormattedCode());
-            Scope golabScope = new Scope(null);
-            SemanticVisitor semanticVisitor = new SemanticVisitor(golabScope);
-            semanticVisitor.visit(tree);
-            if(semanticVisitor.hasError()){
-                semanticVisitor.printSemanticErrorInformation();
-            }else{
-                System.err.println("No semantic errors in the program!");
+                IRVisitor irVisitor = new IRVisitor();
+                irVisitor.visit(tree);
+                irVisitor.dump(outputPath);
             }
         }
 
@@ -65,4 +63,3 @@ public class Main {
         //     }
         // }
     }
-}
