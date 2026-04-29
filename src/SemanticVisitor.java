@@ -147,7 +147,7 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
             List<Type> actualParams = new ArrayList<>();
             if (ctx.funcRParams() != null) {
                 for (SysYParser.ParamContext ParamCtx : ctx.funcRParams().param()) {
-                    actualParams.add(visit(ParamCtx));
+                    actualParams.add(visit(ParamCtx.exp()));
                 }
             }
             if (formalParams.size() != actualParams.size()) {
