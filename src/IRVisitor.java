@@ -18,7 +18,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     private final IntegerType i32 = context.getInt32Type();
     private final IntegerType i1 = context.getInt1Type();
     private final VoidType voidType = context.getVoidType();
-    
+
     // 作用域管理 (你刚写好的 IRScope)
     private IRScope currentScope = new IRScope(null);
 
@@ -28,11 +28,13 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     private static class LoopInfo {
         BasicBlock condBlock; // continue 的跳转目标
         BasicBlock nextBlock; // break 的跳转目标
+
         public LoopInfo(BasicBlock cond, BasicBlock next) {
             this.condBlock = cond;
             this.nextBlock = next;
         }
     }
+
     private final Stack<LoopInfo> loopStack = new Stack<>();
 
     // 判断当前是否需要返回左值地址 (例如赋值语句左边需要地址而不是值)
@@ -41,6 +43,12 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     // 导出模块方法
     public void dump(String path) {
         module.dump(Option.of(new File(path)));
+    }
+
+    @Override
+    public Value visitInitVal(SysYParser.InitValContext ctx) {
+        // 必须返回 visit(exp) 的结果，不能让它默认返回 null
+        return visit(ctx.exp());
     }
 
     // =======================================================
@@ -54,7 +62,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
 
         // 这里假设没有参数，如果有参数需要构造 Type[]
         // 实验 Part 3 需要在这里解析 FuncFParams，构建参数类型列表
-        Type[] paramTypes = new Type[]{}; 
+        Type[] paramTypes = new Type[] {};
         FunctionType funcType = context.getFunctionType(retType, paramTypes, false);
         Function func = module.addFunction(funcName, funcType);
         this.currentFunction = func;
@@ -116,13 +124,13 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             }
         } else {
             // 局部变量
-            varAddr = builder.buildAlloca((org.llvm4j.llvm4j.Type)i32,Option.of(varName));
+            varAddr = builder.buildAlloca((org.llvm4j.llvm4j.Type) i32, Option.of(varName));
             if (ctx.initVal() != null) {
                 Value initVal = visit(ctx.initVal());
                 builder.buildStore(varAddr, initVal); // 存入初始值
             }
         }
-        
+
         currentScope.define(varName, varAddr);
         return varAddr;
     }
@@ -139,27 +147,27 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
         // 如果我们在赋值语句的左侧（如 a = 1;），需要返回地址本身
         if (needLValueAddress) {
             return addr;
-        } 
+        }
         // 否则（作为表达式，如 b = a + 1;），需要加载它的值
         return builder.buildLoad(addr, Option.empty());
     }
 
     @Override
     public Value visitStmt(SysYParser.StmtContext ctx) {
-        
+
         // 1. 赋值语句: lVal ASSIGN exp SEMICOLON
         if (ctx.ASSIGN() != null) {
             needLValueAddress = true;
             Value leftAddr = visit(ctx.lVal());
             needLValueAddress = false;
-            
+
             // 注意：因为 exp 在整个 stmt 规则中最多出现一次，通常 ANTLR 会生成 ctx.exp()。
             // 如果你的 ANTLR 把它当成了列表，这里可能需要改成 ctx.exp(0)
-            Value rightVal = visit(ctx.exp()); 
-            
+            Value rightVal = visit(ctx.exp());
+
             return builder.buildStore(leftAddr, rightVal);
         }
-        
+
         // 2. if语句: IF L_PAREN cond R_PAREN stmt (ELSE stmt)?
         else if (ctx.IF() != null) {
             BasicBlock trueBlock = context.newBasicBlock("if_true");
@@ -192,10 +200,10 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             // --- 切换到 Next 块 ---
             currentFunction.addBasicBlock(nextBlock);
             builder.positionAfter(nextBlock);
-            
+
             return null;
         }
-        
+
         // 3. while语句: WHILE L_PAREN cond R_PAREN stmt
         else if (ctx.WHILE() != null) {
             BasicBlock condBlock = context.newBasicBlock("while_cond");
@@ -223,22 +231,22 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             // --- 切换到 Next 块 ---
             currentFunction.addBasicBlock(nextBlock);
             builder.positionAfter(nextBlock);
-            
+
             return null;
         }
-        
+
         // 4. break语句: BREAK SEMICOLON
         else if (ctx.BREAK() != null) {
             LoopInfo currentLoop = loopStack.peek();
             return builder.buildBranch(currentLoop.nextBlock);
         }
-        
+
         // 5. continue语句: CONTINUE SEMICOLON
         else if (ctx.CONTINUE() != null) {
             LoopInfo currentLoop = loopStack.peek();
             return builder.buildBranch(currentLoop.condBlock);
         }
-        
+
         // 6. return语句: RETURN (exp)? SEMICOLON
         else if (ctx.RETURN() != null) {
             if (ctx.exp() != null) {
@@ -248,12 +256,12 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
                 return builder.buildReturn(Option.empty());
             }
         }
-        
+
         // 7. 复合语句: block
         else if (ctx.block() != null) {
             return visit(ctx.block());
         }
-        
+
         // 8. 表达式语句: (exp)? SEMICOLON
         else {
             if (ctx.exp() != null) {
