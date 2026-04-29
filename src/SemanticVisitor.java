@@ -109,7 +109,7 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
             Type LeftType = visit(ctx.exp(0));
             Type RightType = visit(ctx.exp(1));
             int line = ctx.getStart().getLine();
-            if (LeftType != null && RightType != null && (!LeftType.isInt() || RightType.isInt())) {
+            if (LeftType != null && RightType != null && (!LeftType.isInt() || !RightType.isInt())) {
                 reportError(6, line, "Type dismatched for operands");
             }
             return Type.INT;
