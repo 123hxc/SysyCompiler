@@ -16,6 +16,8 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
 
     // 常用类型缓存
     private final IntegerType i32 = context.getInt32Type();
+    private final IntegerType i1 = context.getInt1Type();
+    
     private final VoidType voidType = context.getVoidType();
 
     // 作用域管理 (你刚写好的 IRScope)
@@ -43,6 +45,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     public void dump(String path) {
         module.dump(Option.of(new File(path)));
     }
+
     @Override
     public Value visitNumber(SysYParser.NumberContext ctx) {
         String text = ctx.getText();
@@ -57,29 +60,30 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
         }
         return i32.getConstant(val, true);
     }
+
     @Override
     public Value visitExp(SysYParser.ExpContext ctx) {
-        
+
         // 1. 括号表达式: L_PAREN exp R_PAREN
         // 注意：函数调用里也有左括号，所以要通过 IDENT 是否为空来排除函数调用
         if (ctx.L_PAREN() != null && ctx.IDENT() == null) {
             return visit(ctx.exp(0));
         }
-        
+
         // 2. 左值: lVal
         if (ctx.lVal() != null) {
             return visit(ctx.lVal());
         }
-        
+
         // 3. 数值常量: number
         if (ctx.number() != null) {
             return visit(ctx.number());
         }
-        
+
         // 4. 函数调用: IDENT L_PAREN funcRParams? R_PAREN
         if (ctx.IDENT() != null && ctx.L_PAREN() != null) {
             String targetFuncName = ctx.IDENT().getText();
-            
+
             // 从模块中获取已经定义好的函数
             Function targetFunc = module.getFunction(targetFuncName).unwrap();
 
@@ -91,7 +95,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             Value[] args = new Value[argCount];
             for (int k = 0; k < argCount; k++) {
                 // visit 会自动 load 变量 a 的值
-                args[k] = visit(ctx.funcRParams().param(k)); 
+                args[k] = visit(ctx.funcRParams().param(k));
             }
 
             // 生成 call 指令
@@ -100,35 +104,37 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
             // 这里为了简单兼容，统一传 Option.empty() 或根据实际情况判断
             return builder.buildCall(targetFunc, args, Option.empty());
         }
-        
+
         // 5. 单目运算: unaryOp exp
         if (ctx.unaryOp() != null) {
             // 获取后面的表达式的值
-            Value child = visit(ctx.exp(0)); 
+            Value child = visit(ctx.exp(0));
             String op = ctx.unaryOp().getText();
-            
+
             if (op.equals("-")) {
                 // 负号: 用 0 减去该值
-                return builder.buildIntSub(i32.getConstant(0, true), child, WrapSemantics.Unspecified, Option.of("negtmp"));
+                return builder.buildIntSub(i32.getConstant(0, true), child, WrapSemantics.Unspecified,
+                        Option.of("negtmp"));
             } else if (op.equals("!")) {
                 // 逻辑非: 判断是否等于 0，再扩展为 i32
-                Value cmp = builder.buildIntCompare(IntPredicate.Equal, child, i32.getConstant(0, true), Option.of("notcmp"));
+                Value cmp = builder.buildIntCompare(IntPredicate.Equal, child, i32.getConstant(0, true),
+                        Option.of("notcmp"));
                 return builder.buildZeroExt(cmp, i32, Option.of("notext"));
             }
             // 正号 "+" 直接返回原值
             return child;
         }
-        
+
         // 6. 双目运算: exp (MUL|DIV|MOD|PLUS|MINUS) exp
         // 只要包含两个 exp 子节点，就是双目运算
         if (ctx.exp().size() == 2) {
             Value left = visit(ctx.exp(0));
             Value right = visit(ctx.exp(1));
-            
+
             if (ctx.MUL() != null) {
                 return builder.buildIntMul(left, right, WrapSemantics.Unspecified, Option.of("multmp"));
             } else if (ctx.DIV() != null) {
-                return builder.buildSignedDiv(left, right,false, Option.of("divtmp"));
+                return builder.buildSignedDiv(left, right, false, Option.of("divtmp"));
             } else if (ctx.MOD() != null) {
                 return builder.buildSignedRem(left, right, Option.of("modtmp"));
             } else if (ctx.PLUS() != null) {
@@ -137,10 +143,74 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
                 return builder.buildIntSub(left, right, WrapSemantics.Unspecified, Option.of("subtmp"));
             }
         }
-        
-        
+        // 在你的 visitExp (或负责双目运算的逻辑) 中补充比较运算：
+
         return null;
     }
+    // =======================================================
+    // Part 3: 条件表达式处理
+    // =======================================================
+    @Override
+    public Value visitCond(SysYParser.CondContext ctx) {
+        
+        // 1. 基本情况：cond 只是一个 exp (例如 while(a) 或 if(1))
+        if (ctx.exp() != null) {
+            Value expVal = visit(ctx.exp());
+            // 必须将 i32 转换为 i1 给 br 指令使用 (相当于判断 expVal != 0)
+            return builder.buildIntCompare(IntPredicate.NotEqual, expVal, i32.getConstant(0, true), Option.of("tobool"));
+        }
+
+        // 2. 双目运算 (包含两个 cond 子节点)
+        if (ctx.cond().size() == 2) {
+            
+            // ⚠️ 核心技巧：提取左右两边的值并统一为 i32 格式
+            // 为什么这么做？因为你的 g4 规定两边也是 cond。
+            // 如果一边是单纯的变量 (exp)，我们直接取它的 i32 值；
+            // 如果一边是比较结果 (比如 a < b，返回的是 i1)，我们需要先把它扩展(ZeroExt)回 i32 才能参与外层运算。
+            Value left = getCondAsI32(ctx.cond(0));
+            Value right = getCondAsI32(ctx.cond(1));
+
+            // --- 关系运算：比较 i32，生成 i1 ---
+            if (ctx.LT() != null) {
+                return builder.buildIntCompare(IntPredicate.SignedLessThan, left, right, Option.of("cmptmp"));
+            } else if (ctx.LE() != null) {
+                return builder.buildIntCompare(IntPredicate.SignedLessEqual, left, right, Option.of("cmptmp"));
+            } else if (ctx.GT() != null) {
+                return builder.buildIntCompare(IntPredicate.SignedGreaterThan, left, right, Option.of("cmptmp"));
+            } else if (ctx.GE() != null) {
+                return builder.buildIntCompare(IntPredicate.SignedGreaterEqual, left, right, Option.of("cmptmp"));
+            } else if (ctx.EQ() != null) {
+                return builder.buildIntCompare(IntPredicate.Equal, left, right, Option.of("cmptmp"));
+            } else if (ctx.NEQ() != null) {
+                return builder.buildIntCompare(IntPredicate.NotEqual, left, right, Option.of("cmptmp"));
+            }
+            
+            // --- 逻辑运算：先将 i32 压成 i1，再执行 AND/OR，生成 i1 ---
+            else if (ctx.AND() != null) {
+                Value lBool = builder.buildIntCompare(IntPredicate.NotEqual, left, i32.getConstant(0, true), Option.of("lbool"));
+                Value rBool = builder.buildIntCompare(IntPredicate.NotEqual, right, i32.getConstant(0, true), Option.of("rbool"));
+                return builder.buildLogicalAnd(lBool, rBool, Option.of("andtmp"));
+            } else if (ctx.OR() != null) {
+                Value lBool = builder.buildIntCompare(IntPredicate.NotEqual, left, i32.getConstant(0, true), Option.of("lbool"));
+                Value rBool = builder.buildIntCompare(IntPredicate.NotEqual, right, i32.getConstant(0, true), Option.of("rbool"));
+                return builder.buildLogicalOr(lBool, rBool, Option.of("ortmp"));
+            }
+        }
+        return null;
+    }
+
+    // 辅助方法：确保拿到的操作数是 i32 类型
+    private Value getCondAsI32(SysYParser.CondContext ctx) {
+        if (ctx.exp() != null) {
+            // 如果它本身就是算术表达式，直接返回 i32
+            return visit(ctx.exp());
+        } else {
+            // 如果它是比较或逻辑运算，它的结果是 i1，我们需要将它用 0 填充扩展为 i32
+            Value condVal = visit(ctx);
+            return builder.buildZeroExt(condVal, i32, Option.of("zexttmp"));
+        }
+    }
+    
 
     @Override
     public Value visitInitVal(SysYParser.InitValContext ctx) {
@@ -154,7 +224,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
     @Override
     public Value visitFuncDef(SysYParser.FuncDefContext ctx) {
         // 注意：这里根据你的 .g4 文件，函数名可能是 IDENT() 也可能是 ID()
-        String funcName = ctx.IDENT().getText(); 
+        String funcName = ctx.IDENT().getText();
         boolean isVoid = ctx.funcType().getText().equals("void");
         Type retType = isVoid ? (Type) voidType : (Type) i32;
 
@@ -166,7 +236,7 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
         Type[] paramTypes = new Type[paramCount];
         for (int k = 0; k < paramCount; k++) {
             // 目前阶段假设参数都是 int 类型
-            paramTypes[k] = i32; 
+            paramTypes[k] = i32;
         }
 
         FunctionType funcType = context.getFunctionType(retType, paramTypes, false);
@@ -191,10 +261,10 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
 
                 // 在栈上为该形参分配一块局部内存
                 Value paramAddr = builder.buildAlloca(i32, Option.of(paramName + "_addr"));
-                
+
                 // 将传入的值存储到这块内存中
                 builder.buildStore(paramAddr, argValue);
-                
+
                 // 将内存地址注册到当前作用域，这样后面遇到 return i 就能 resolve 到了！
                 currentScope.define(paramName, paramAddr);
             }

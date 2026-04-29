@@ -1,19 +1,35 @@
 ; ModuleID = 'sysy_module'
 source_filename = "sysy_module"
 
-define i32 @f(i32 %0) {
-fEntry:
-  %i_addr = alloca i32, align 4
-  store i32 %0, i32* %i_addr, align 4
-  %1 = load i32, i32* %i_addr, align 4
-  ret i32 %1
-}
+@a = global i32 0
+@count = global i32 0
 
 define i32 @main() {
 mainEntry:
-  %a = alloca i32, align 4
-  store i32 1, i32* %a, align 4
-  %0 = load i32, i32* %a, align 4
-  %1 = call i32 @f(i32 %0)
-  ret i32 %1
+  br label %while_cond
+
+while_cond:                                       ; preds = %if_next, %mainEntry
+  %0 = load i32, i32* @a, align 4
+  br i32 0, label %while_body, label %while_next
+
+while_body:                                       ; preds = %while_cond
+  %1 = load i32, i32* @a, align 4
+  %subtmp = sub i32 %1, 1
+  store i32 %subtmp, i32* @a, align 4
+  %2 = load i32, i32* @count, align 4
+  %addtmp = add i32 %2, 1
+  store i32 %addtmp, i32* @count, align 4
+  %3 = load i32, i32* @a, align 4
+  br i32 -20, label %if_true, label %if_next
+
+if_true:                                          ; preds = %while_body
+  br label %while_next
+  br label %if_next
+
+if_next:                                          ; preds = %if_true, %while_body
+  br label %while_cond
+
+while_next:                                       ; preds = %if_true, %while_cond
+  %4 = load i32, i32* @count, align 4
+  ret i32 %4
 }
