@@ -96,6 +96,15 @@ public class SemanticVisitor extends SysYParserBaseVisitor<Type> {
     }
 
     @Override
+    public Type visitCond(SysYParser.CondContext ctx) {
+        Type condType = visitChildren(ctx);
+        if (condType != null && !condType.isInt()) {
+            reportError(6, ctx.getStart().getLine(), "Condition must be int");
+        }
+        return Type.INT;
+    }
+
+    @Override
     public Type visitExp(SysYParser.ExpContext ctx) {
         if (ctx.number() != null) {
             return Type.INT;
