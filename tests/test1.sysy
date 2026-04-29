@@ -1,3 +1,6 @@
 int main() {
-    return 3 + 2 * 5;
+    int a = 3;
+    int b = 2;
+    int c = 5;
+    return a + b * c;
 }

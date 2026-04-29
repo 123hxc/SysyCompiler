@@ -3,5 +3,5 @@ source_filename = "sysy_module"
 
 define i32 @main() {
 mainEntry:
-  ret i32 -2
+  ret i32 13
 }
