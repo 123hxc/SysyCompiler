@@ -42,6 +42,21 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
         module.addFunction("putch", putchType);
         
         // 如果后续有数组，还需要 getarray 和 putarray
+        // 获取 i32 的指针类型 (相当于 C 语言的 int*)
+        PointerType i32Ptr = context.getInt32Type().getPointerTo();
+
+        // int getarray(int[]) -> 传参其实是指针 i32*
+        FunctionType getarrayType = context.getFunctionType(i32, new Type[]{i32Ptr}, false);
+        module.addFunction("getarray", getarrayType);
+
+        // void putarray(int, int[])
+        FunctionType putarrayType = context.getFunctionType(voidType, new Type[]{i32, i32Ptr}, false);
+        module.addFunction("putarray", putarrayType);
+
+        // starttime 和 stoptime (SysY 评测系统专用的性能计时函数)
+        FunctionType timeType = context.getFunctionType(voidType, new Type[]{}, false);
+        module.addFunction("starttime", timeType);
+        module.addFunction("stoptime", timeType);
     }
 
     // =======================================================
@@ -342,9 +357,12 @@ public class IRVisitor extends SysYParserBaseVisitor<Value> {
 
         currentScope = currentScope.getParent();
 
-        // 容错：如果是 void 函数但没写 return，自动补全
+        // 容错机制：不管源码有没有写 return，我们强行在最后补一个默认 return
+        // 避免因为源码漏写 return 导致该基本块没有 Terminator，从而报 Invalid IR
         if (isVoid) {
             builder.buildReturn(Option.empty());
+        } else {
+            builder.buildReturn(Option.of(i32.getConstant(0, true)));
         }
 
         return func;
