@@ -8,6 +8,8 @@
 
 `git checkout -b lab2`切换分支
 
+`java -jar rars.jar test.asm a0 ic`使用rars
+
 `git add.`提交
 `git commit -m "msg"`
 `make submit`
