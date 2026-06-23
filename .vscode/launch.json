@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        
+        {
+            "name": "Debug Formatter",
+            "type": "java",
+            "request": "launch",
+            "mainClass": "Main",
+            "args": ["tests/test5.sysy"],
+            "classPaths": [
+                "${workspaceFolder}/src",
+                "/usr/local/lib/antlr-4.9.1-complete.jar"
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
+}
